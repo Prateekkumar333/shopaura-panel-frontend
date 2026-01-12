@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
 import API from '../../config/api';
+import { FiImage, FiTrash2 } from 'react-icons/fi';
 
 const CategoryForm = ({ category, onSuccess, onCancel, categories }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     parent: '',
-    image: { url: '' },
     icon: '',
     order: 0,
     isFeatured: false,
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [existingImage, setExistingImage] = useState(null);
 
   useEffect(() => {
     if (category) {
@@ -20,11 +23,14 @@ const CategoryForm = ({ category, onSuccess, onCancel, categories }) => {
         name: category.name || '',
         description: category.description || '',
         parent: category.parent?._id || '',
-        image: { url: category.image?.url || '' },
         icon: category.icon || '',
         order: category.order || 0,
         isFeatured: category.isFeatured || false,
       });
+      
+      if (category.image?.url) {
+        setExistingImage(category.image);
+      }
     }
   }, [category]);
 
@@ -49,21 +55,47 @@ const CategoryForm = ({ category, onSuccess, onCancel, categories }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === 'imageUrl') {
-      setFormData((prev) => ({
-        ...prev,
-        image: { url: value },
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value,
-      }));
-    }
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
     
     // Clear error for this field
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('File is too large. Max size is 2MB');
+      return;
+    }
+
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const removeImagePreview = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    // Clear the file input
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) fileInput.value = '';
+  };
+
+  const removeExistingImage = () => {
+    if (window.confirm('Remove existing image?')) {
+      setExistingImage(null);
     }
   };
 
@@ -77,16 +109,40 @@ const CategoryForm = ({ category, onSuccess, onCancel, categories }) => {
     setLoading(true);
 
     try {
-      const submitData = {
+      // Create FormData
+      const formDataToSend = new FormData();
+
+      // Append category data as JSON
+      const categoryData = {
         ...formData,
         parent: formData.parent || null,
       };
 
+      // For edit, include existing image info if no new image is selected
+      if (category && existingImage && !imageFile) {
+        categoryData.existingImage = existingImage;
+      }
+
+      formDataToSend.append('data', JSON.stringify(categoryData));
+
+      // Append image file if selected
+      if (imageFile) {
+        formDataToSend.append('image', imageFile);
+      }
+
       if (category) {
-        await API.put(`/categories/${category._id}`, submitData);
+        await API.put(`/categories/${category._id}`, formDataToSend, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
         alert('Category updated successfully');
       } else {
-        await API.post('/categories', submitData);
+        await API.post('/categories', formDataToSend, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
         alert('Category created successfully');
       }
       onSuccess();
@@ -159,28 +215,75 @@ const CategoryForm = ({ category, onSuccess, onCancel, categories }) => {
         </select>
       </div>
 
+      {/* Category Image */}
       <div>
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
-          Image URL
+        <label className="block text-sm font-semibold text-gray-700 mb-3">
+          Category Image
         </label>
-        <input
-          type="url"
-          name="imageUrl"
-          value={formData.image.url}
-          onChange={handleChange}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-          placeholder="https://example.com/image.jpg"
-        />
-        {formData.image.url && (
-          <div className="mt-3">
-            <img
-              src={formData.image.url}
-              alt="Preview"
-              className="h-20 w-20 object-cover rounded-lg border-2 border-gray-200"
-              onError={(e) => {
-                e.target.style.display = 'none';
-              }}
-            />
+
+        {/* Existing Image */}
+        {category && existingImage && !imagePreview && (
+          <div className="mb-4">
+            <p className="text-xs text-gray-600 mb-2">Current Image</p>
+            <div className="relative inline-block">
+              <img
+                src={existingImage.url}
+                alt="Existing"
+                className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200"
+              />
+              <button
+                type="button"
+                onClick={removeExistingImage}
+                className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
+              >
+                <FiTrash2 size={14} />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Image Upload */}
+        {!imagePreview && (
+          <div className="flex items-center justify-center w-full">
+            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                <FiImage className="w-8 h-8 mb-2 text-gray-400" />
+                <p className="text-sm text-gray-500">
+                  <span className="font-semibold">Click to upload</span> category image
+                </p>
+                <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP (MAX. 2MB)</p>
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+            </label>
+          </div>
+        )}
+
+        {/* Image Preview */}
+        {imagePreview && (
+          <div>
+            <p className="text-xs text-gray-600 mb-2">New Image</p>
+            <div className="relative inline-block">
+              <img
+                src={imagePreview}
+                alt="Preview"
+                className="w-24 h-24 object-cover rounded-lg border-2 border-blue-500"
+              />
+              <button
+                type="button"
+                onClick={removeImagePreview}
+                className="absolute -top-2 -right-2 p-1.5 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
+              >
+                <FiTrash2 size={14} />
+              </button>
+              <p className="text-xs text-gray-600 mt-1 truncate max-w-24">
+                {imageFile?.name}
+              </p>
+            </div>
           </div>
         )}
       </div>

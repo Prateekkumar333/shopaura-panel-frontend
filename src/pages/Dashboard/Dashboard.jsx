@@ -1,21 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import API from '../../config/api';
 import {
   FiPackage,
   FiShoppingCart,
   FiDollarSign,
   FiTrendingUp,
-  FiUsers,
-  FiStar,
-  FiAlertCircle,
   FiCheckCircle,
+  FiAlertCircle,
   FiBarChart2,
   FiGrid,
 } from 'react-icons/fi';
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   PieChart,
@@ -28,9 +23,10 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
+import API from '../../config/api';
 
 const Dashboard = () => {
-  const { user, isAdmin, isSeller } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [categoryStats, setCategoryStats] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -43,100 +39,41 @@ const Dashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Fetch product stats
-      const productStatsPromise = API.get('/products/admin/stats');
-      
-      // Fetch category stats (admin only)
-      const categoryStatsPromise = isAdmin 
-        ? API.get('/categories/admin/stats') 
-        : Promise.resolve({ data: {} });
-      
-      // Fetch recent products
-      const recentProductsPromise = API.get('/products/my/products', {
-        params: { limit: 5, includeInactive: 'true' }
+
+      const statsRes = await API.get('/products/my/stats');
+      const productsRes = await API.get('/products/my/products', {
+        params: { limit: 5 }
       });
 
-      const [productRes, categoryRes, recentRes] = await Promise.all([
-        productStatsPromise,
-        categoryStatsPromise,
-        recentProductsPromise,
-      ]);
-
-      setStats(productRes.data.stats);
-      setCategoryStats(productRes.data.categoryStats || []);
-      setRecentProducts(recentRes.data.products || []);
+      setStats(statsRes.data.stats || {});
+      setCategoryStats(statsRes.data.categoryStats || []);
+      setRecentProducts(productsRes.data.products || []);
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setStats({
+        totalProducts: 0,
+        activeProducts: 0,
+        totalStock: 0,
+        totalSold: 0,
+        averagePrice: 0,
+        lowStockCount: 0
+      });
+      setCategoryStats([]);
+      setRecentProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const statCards = [
-    {
-      title: 'Total Products',
-      value: stats?.totalProducts || 0,
-      icon: FiPackage,
-      color: 'from-blue-500 to-blue-600',
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600',
-      change: '+12%',
-      changeType: 'increase',
-    },
-    {
-      title: 'Active Products',
-      value: stats?.activeProducts || 0,
-      icon: FiCheckCircle,
-      color: 'from-green-500 to-green-600',
-      bgColor: 'bg-green-50',
-      textColor: 'text-green-600',
-      change: '+8%',
-      changeType: 'increase',
-    },
-    {
-      title: 'Average Price',
-      value: `$${stats?.averagePrice?.toFixed(2) || 0}`,
-      icon: FiDollarSign,
-      color: 'from-yellow-500 to-yellow-600',
-      bgColor: 'bg-yellow-50',
-      textColor: 'text-yellow-600',
-      change: '+5%',
-      changeType: 'increase',
-    },
-    {
-      title: 'Total Stock',
-      value: stats?.totalStock || 0,
-      icon: FiShoppingCart,
-      color: 'from-purple-500 to-purple-600',
-      bgColor: 'bg-purple-50',
-      textColor: 'text-purple-600',
-      change: '-3%',
-      changeType: 'decrease',
-    },
-    {
-      title: 'Total Sold',
-      value: stats?.totalSold || 0,
-      icon: FiTrendingUp,
-      color: 'from-pink-500 to-pink-600',
-      bgColor: 'bg-pink-50',
-      textColor: 'text-pink-600',
-      change: '+15%',
-      changeType: 'increase',
-    },
-    {
-      title: 'Low Stock Items',
-      value: recentProducts.filter(p => p.stock < 10).length,
-      icon: FiAlertCircle,
-      color: 'from-red-500 to-red-600',
-      bgColor: 'bg-red-50',
-      textColor: 'text-red-600',
-      change: 'Alert',
-      changeType: 'warning',
-    },
-  ];
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
+    }).format(price || 0);
+  };
 
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
   if (loading) {
     return (
@@ -149,16 +86,57 @@ const Dashboard = () => {
     );
   }
 
+  const statCards = [
+    {
+      title: 'Total Products',
+      value: stats?.totalProducts || 0,
+      icon: FiPackage,
+      bgColor: 'bg-blue-50',
+      textColor: 'text-blue-600',
+    },
+    {
+      title: 'Active Products',
+      value: stats?.activeProducts || 0,
+      icon: FiCheckCircle,
+      bgColor: 'bg-green-50',
+      textColor: 'text-green-600',
+    },
+    {
+      title: 'Average Price',
+      value: formatPrice(stats?.averagePrice),
+      icon:  () => <span className="text-3xl font-bold">₹</span>,
+      bgColor: 'bg-yellow-50',
+      textColor: 'text-yellow-600',
+    },
+    {
+      title: 'Total Stock',
+      value: stats?.totalStock || 0,
+      icon: FiShoppingCart,
+      bgColor: 'bg-purple-50',
+      textColor: 'text-purple-600',
+    },
+    {
+      title: 'Total Sold',
+      value: stats?.totalSold || 0,
+      icon: FiTrendingUp,
+      bgColor: 'bg-pink-50',
+      textColor: 'text-pink-600',
+    },
+    {
+      title: 'Low Stock Items',
+      value: stats?.lowStockCount || 0,
+      icon: FiAlertCircle,
+      bgColor: 'bg-red-50',
+      textColor: 'text-red-600',
+    },
+  ];
+
   return (
-    <div className="space-y-6 animate-fadeIn">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="bg-linear-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white shadow-xl">
-        <h1 className="text-4xl font-bold">
-          Welcome back, {user?.name}! 👋
-        </h1>
-        <p className="text-blue-100 mt-2 text-lg">
-          Here's what's happening with your store today
-        </p>
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white shadow-xl">
+        <h1 className="text-4xl font-bold">Welcome back, {user?.name}! 👋</h1>
+        <p className="text-blue-100 mt-2 text-lg">Here is what is happening with your store today</p>
       </div>
 
       {/* Stats Cards */}
@@ -178,24 +156,8 @@ const Dashboard = () => {
                   <p className="text-4xl font-bold text-gray-900 mt-3">
                     {stat.value}
                   </p>
-                  <div className="flex items-center mt-3">
-                    <span
-                      className={`text-sm font-semibold ${
-                        stat.changeType === 'increase'
-                          ? 'text-green-600'
-                          : stat.changeType === 'decrease'
-                          ? 'text-red-600'
-                          : 'text-orange-600'
-                      }`}
-                    >
-                      {stat.change}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-2">vs last month</span>
-                  </div>
                 </div>
-                <div
-                  className={`${stat.bgColor} p-4 rounded-2xl shadow-md`}
-                >
+                <div className={`${stat.bgColor} p-4 rounded-2xl shadow-md`}>
                   <Icon size={32} className={stat.textColor} />
                 </div>
               </div>
@@ -206,67 +168,67 @@ const Dashboard = () => {
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Category Distribution - Bar Chart */}
+        {/* Bar Chart */}
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
             <FiBarChart2 className="mr-2 text-blue-600" />
             Products by Category
           </h2>
-          <ResponsiveContainer width="100%" height={320}>
-            <BarChart data={categoryStats}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#fff', 
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                }}
-              />
-              <Legend />
-              <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {categoryStats.length > 0 ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={categoryStats}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={80}
+                />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" fill="#3B82F6" radius={[8, 8, 0, 0]} name="Products" />
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-80 flex items-center justify-center text-gray-500">
+              <p>No category data available</p>
+            </div>
+          )}
         </div>
 
-        {/* Category Price Distribution - Pie Chart */}
+        {/* Pie Chart */}
         <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
           <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
             <FiDollarSign className="mr-2 text-green-600" />
             Average Price by Category
           </h2>
-          <ResponsiveContainer width="100%" height={320}>
-            <PieChart>
-              <Pie
-                data={categoryStats}
-                dataKey="averagePrice"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label={({ name, percent }) => 
-                  `${name} ${(percent * 100).toFixed(0)}%`
-                }
-                labelLine={{ stroke: '#666', strokeWidth: 1 }}
-              >
-                {categoryStats.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip 
-                formatter={(value) => `$${value.toFixed(2)}`}
-                contentStyle={{ 
-                  backgroundColor: '#fff', 
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                }}
-              />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          {categoryStats.length > 0 ? (
+            <ResponsiveContainer width="100%" height={320}>
+              <PieChart>
+                <Pie
+                  data={categoryStats}
+                  dataKey="averagePrice"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                >
+                  {categoryStats.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatPrice(value)} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-80 flex items-center justify-center text-gray-500">
+              <p>No price data available</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -300,58 +262,70 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {recentProducts.map((product) => (
-                <tr key={product._id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <img
-                        src={product.thumbnail || product.images[0]?.url}
-                        alt={product.name}
-                        className="h-12 w-12 rounded-lg object-cover shadow-sm"
-                      />
-                      <div className="ml-4">
-                        <div className="text-sm font-semibold text-gray-900">
-                          {product.name}
+              {recentProducts.length > 0 ? (
+                recentProducts.map((product) => (
+                  <tr key={product._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <img
+                          src={product.thumbnail?.url || product.images?.[0]?.url || 'https://placehold.co/50x50?text=No+Image'}
+                          alt={product.name}
+                          className="h-12 w-12 rounded-lg object-cover shadow-sm border border-gray-200"
+                        />
+                        <div className="ml-4">
+                          <div className="text-sm font-semibold text-gray-900">
+                            {product.name}
+                          </div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {product.category?.name || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-bold text-gray-900">
+                        {formatPrice(product.price)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-3 py-1 text-xs font-bold rounded-full ${
+                          product.stock > 10
+                            ? 'bg-green-100 text-green-800'
+                            : product.stock > 0
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {product.stock}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-3 py-1 text-xs font-bold rounded-full ${
+                          product.isActive
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {product.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center text-gray-500">
+                      <FiPackage size={48} className="mb-4 opacity-50" />
+                      <p className="text-lg font-semibold">No products yet</p>
+                      <p className="text-sm mt-1">Start by creating your first product</p>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                      {product.category?.name || 'N/A'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-gray-900">
-                      ${product.price}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-3 py-1 text-xs font-bold rounded-full ${
-                        product.stock > 10
-                          ? 'bg-green-100 text-green-800'
-                          : product.stock > 0
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}
-                    >
-                      {product.stock}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-3 py-1 text-xs font-bold rounded-full ${
-                        product.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {product.isActive ? 'Active' : 'Inactive'}
-                    </span>
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -389,7 +363,7 @@ const Dashboard = () => {
                   <tr key={index} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div 
+                        <div
                           className="w-3 h-3 rounded-full mr-3"
                           style={{ backgroundColor: COLORS[index % COLORS.length] }}
                         ></div>
@@ -405,14 +379,14 @@ const Dashboard = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-bold text-green-600">
-                        ${category.averagePrice?.toFixed(2)}
+                        {formatPrice(category.averagePrice)}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="w-full bg-gray-200 rounded-full h-2 mr-2" style={{ width: '100px' }}>
                           <div
-                            className="bg-linear-to-r from-blue-500 to-purple-500 h-2 rounded-full"
+                            className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full"
                             style={{ width: `${Math.min((category.count / stats?.totalProducts) * 100, 100)}%` }}
                           ></div>
                         </div>

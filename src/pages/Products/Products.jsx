@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../config/api';
 import { useAuth } from '../../context/AuthContext';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiEye } from 'react-icons/fi';
+import  usePrice  from '../../hooks/usePrice'
 
 const Products = () => {
   const navigate = useNavigate();
@@ -17,6 +18,8 @@ const Products = () => {
     totalPages: 1,
     total: 0,
   });
+
+  const { format } = usePrice()
 
   useEffect(() => {
     fetchProducts();
@@ -171,9 +174,12 @@ const Products = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <img
-                        src={product.thumbnail || product.images[0]?.url}
+                        src={product.thumbnail?.url || product.images?.[0]?.url || 'https://via.placeholder.com/300'}
                         alt={product.name}
                         className="h-12 w-12 rounded object-cover"
+                        onError={(e) => {
+                          e.target.src = 'https://via.placeholder.com/300';
+                        }}
                       />
                       <div className="ml-4">
                         <div className="text-sm font-medium text-gray-900">{product.name}</div>
@@ -186,10 +192,10 @@ const Products = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      ${product.discountPrice || product.price}
+                      {format(product.discountPrice ?? product.price)}
                       {product.discountPrice && (
                         <span className="ml-2 text-xs text-gray-500 line-through">
-                          ${product.price}
+                            {format(product.price)}
                         </span>
                       )}
                     </div>
@@ -235,18 +241,21 @@ const Products = () => {
                       <button
                         onClick={() => navigate(`/dashboard/products/${product._id}`)}
                         className="text-gray-600 hover:text-gray-900"
+                        title="View Details"
                       >
                         <FiEye size={18} />
                       </button>
                       <button
                         onClick={() => navigate(`/dashboard/products/edit/${product._id}`)}
                         className="text-blue-600 hover:text-blue-900"
+                        title="Edit Product"
                       >
                         <FiEdit2 size={18} />
                       </button>
                       <button
                         onClick={() => handleDelete(product._id)}
                         className="text-red-600 hover:text-red-900"
+                        title="Delete Product"
                       >
                         <FiTrash2 size={18} />
                       </button>
@@ -258,51 +267,67 @@ const Products = () => {
           </table>
         </div>
 
+        {/* Empty State */}
+        {filteredProducts.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-500 text-lg">No products found</p>
+            <button
+              onClick={() => navigate('/dashboard/products/add')}
+              className="mt-4 inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <FiPlus />
+              <span>Add Your First Product</span>
+            </button>
+          </div>
+        )}
+
         {/* Pagination */}
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <button
-              onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-              disabled={pagination.page === 1}
-              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-              disabled={pagination.page === pagination.totalPages}
-              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Showing page <span className="font-medium">{pagination.page}</span> of{' '}
-                <span className="font-medium">{pagination.totalPages}</span>
-              </p>
+        {filteredProducts.length > 0 && (
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                disabled={pagination.page === 1}
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                disabled={pagination.page === pagination.totalPages}
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                <button
-                  onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-                  disabled={pagination.page === 1}
-                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-                  disabled={pagination.page === pagination.totalPages}
-                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Next
-                </button>
-              </nav>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing page <span className="font-medium">{pagination.page}</span> of{' '}
+                  <span className="font-medium">{pagination.totalPages}</span>
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                  <button
+                    onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                    disabled={pagination.page === 1}
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                    disabled={pagination.page === pagination.totalPages}
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </nav>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
