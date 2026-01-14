@@ -5,6 +5,9 @@ const ProtectedRoute = ({ allowedRoles }) => {
   const { user, isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
+  console.log("user", user)
+  console.log("isauthenticated", isAuthenticated)
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

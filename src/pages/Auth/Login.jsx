@@ -1,22 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
-  const [formData, setFormData] = useState({ 
-    email: '', 
-    password: '' 
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const { login } = useAuth();
+
+  const { login, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, authLoading, navigate]);
+
   const handleChange = (e) => {
-    setFormData({ 
-      ...formData, 
-      [e.target.name]: e.target.value 
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
     });
   };
 
@@ -30,14 +38,32 @@ const Login = () => {
     setLoading(false);
 
     if (result.success) {
-      navigate('/');
+      // After successful login → redirect to dashboard
+      navigate('/dashboard', { replace: true });
     } else {
-      setError(result.message);
+      setError(result.message || 'Login failed. Please check your credentials.');
     }
   };
 
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-amber-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-purple-500 border-solid"></div>
+          <p className="text-gray-600 font-medium">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If already authenticated → this won't be shown long due to redirect
+  if (isAuthenticated) {
+    return null; // or you can return a minimal spinner/redirect message
+  }
+
   return (
-    <div className="h-screen flex items-center justify-center bg-linear-to-brrom-purple-50 via-pink-50 to-amber-50 p-4 overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-pink-50 to-amber-50 p-4">
       {/* Main Container */}
       <div className="w-full max-w-3xl h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex items-center justify-center px-8 py-10">
         
@@ -48,10 +74,10 @@ const Login = () => {
             <div className="flex items-center gap-2 justify-center">
               <span className="text-4xl">🛒</span>
               <h1 className="text-4xl font-extrabold">
-                <span className="bg-linear-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">
                   shop
                 </span>
-                <span className="bg-linear-to-r from-pink-500 to-amber-500 bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-pink-500 to-amber-500 bg-clip-text text-transparent">
                   aura
                 </span>
               </h1>
@@ -127,16 +153,19 @@ const Login = () => {
                   Remember me
                 </label>
               </div>
-              <a href="#" className="text-sm text-purple-600 hover:text-purple-700 font-medium">
+              <Link 
+                to="/forgot-password" 
+                className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+              >
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-linear-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-3 px-4 rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-all duration-300 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center justify-center">
